@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>fast-sine — Sign Contract</title>
+  <style>
+    :root {
+      --ink: #1a2340;
+      --line: #c8cddb;
+      --accent: #2b3a67;
+      --bg: #f4f5f8;
+      --err: #b3261e;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Georgia, "Times New Roman", Cambria, serif;
+      line-height: 1.5;
+    }
+
+    .wrap {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+
+    h1 {
+      font-size: 28px;
+      margin: 0 0 4px;
+    }
+
+    .sub {
+      color: #5a627a;
+      margin: 0 0 28px;
+      font-size: 15px;
+    }
+
+    .preview {
+      margin: 0 0 30px;
+    }
+
+    .preview iframe {
+      width: 100%;
+      height: 460px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    .review-head {
+      font-weight: bold;
+      font-size: 15px;
+      margin: 0 0 8px;
+    }
+
+    .field {
+      margin: 0 0 26px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 8px;
+      font-size: 15px;
+    }
+
+    input[type=text] {
+      width: 100%;
+      padding: 11px 12px;
+      font: inherit;
+      font-size: 16px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    .pad-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .clear {
+      font: inherit;
+      font-size: 13px;
+      color: var(--accent);
+      background: none;
+      border: none;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 0;
+    }
+
+    canvas {
+      width: 100%;
+      height: 150px;
+      touch-action: none;
+      display: block;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      cursor: crosshair;
+    }
+
+    canvas.initials {
+      height: 120px;
+      max-width: 260px;
+    }
+
+    canvas.invalid {
+      border-color: var(--err);
+    }
+
+    .hint {
+      font-size: 13px;
+      color: #5a627a;
+      margin-top: 6px;
+    }
+
+    button.submit {
+      font: inherit;
+      font-size: 17px;
+      font-weight: bold;
+      color: #fff;
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      padding: 13px 28px;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+
+    button.submit:disabled {
+      opacity: .55;
+      cursor: default;
+    }
+
+    .status {
+      margin-top: 16px;
+      font-size: 15px;
+      min-height: 22px;
+    }
+
+    .status.error {
+      color: var(--err);
+    }
+
+    .status.ok {
+      color: #1f7a3d;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>Contract Agreement</h1>
+    <p class="sub">Review the contract below, then complete the fields and sign. Your signed PDF downloads on submit.
+    </p>
+    <div class="preview">
+      <p class="review-head">Review — blank copy of the contract</p>
+      <iframe src="/preview" title="Blank contract preview"></iframe>
+    </div>
+    <form id="form"></form>
+    <button class="submit" id="submit" type="button" disabled>Generating form…</button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById("form");
+    const submitBtn = document.getElementById("submit");
+    const statusEl = document.getElementById("status");
+    const pads = {};          // name -> SignaturePad (ClientSignature + the shared initials pad)
+    const textInputs = {};    // name -> <input>
+    const initialNames = [];  // Initial_1/2/3 — all filled from one shared pad
+    const INITIALS_KEY = "__initials__";
+
+    function setStatus(msg, kind) {
+      statusEl.textContent = msg || "";
+      statusEl.className = "status" + (kind ? " " + kind : "");
+    }
+
+    class SignaturePad {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext("2d");
+        this.drawn = false;
+        this.drawing = false;
+        this._resize();
+        window.addEventListener("resize", () => this._resize());
+        canvas.addEventListener("pointerdown", (e) => this._start(e));
+        canvas.addEventListener("pointermove", (e) => this._move(e));
+        canvas.addEventListener("pointerup", () => this._end());
+        canvas.addEventListener("pointerleave", () => this._end());
+      }
+      _resize() {
+        // Preserve strokes across DPR-aware resize by snapshotting first.
+        const prev = this.drawn ? this.canvas.toDataURL() : null;
+        const r = this.canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        this.canvas.width = Math.round(r.width * dpr);
+        this.canvas.height = Math.round(r.height * dpr);
+        this.ctx.scale(dpr, dpr);
+        this.ctx.lineWidth = 2.2;
+        this.ctx.lineCap = "round";
+        this.ctx.lineJoin = "round";
+        this.ctx.strokeStyle = "#111a33";
+        if (prev) {
+          const img = new Image();
+          img.onload = () => this.ctx.drawImage(img, 0, 0, r.width, r.height);
+          img.src = prev;
+        }
+      }
+      _pt(e) {
+        const r = this.canvas.getBoundingClientRect();
+        return { x: e.clientX - r.left, y: e.clientY - r.top };
+      }
+      _start(e) {
+        this.drawing = true;
+        const p = this._pt(e);
+        this.ctx.beginPath();
+        this.ctx.moveTo(p.x, p.y);
+        this.canvas.setPointerCapture(e.pointerId);
+      }
+      _move(e) {
+        if (!this.drawing) return;
+        const p = this._pt(e);
+        this.ctx.lineTo(p.x, p.y);
+        this.ctx.stroke();
+        this.drawn = true;
+        this.canvas.classList.remove("invalid");
+      }
+      _end() { this.drawing = false; }
+      clear() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.drawn = false;
+      }
+      dataURL() { return this.canvas.toDataURL("image/png"); }
+    }
+
+    function addTextField(name, spec) {
+      const wrap = document.createElement("div");
+      wrap.className = "field";
+      const label = document.createElement("label");
+      label.textContent = name === "ClientName" ? "Full legal name" : name;
+      const input = document.createElement("input");
+      input.type = "text";
+      input.autocomplete = "name";
+      if (spec.max_length) input.maxLength = spec.max_length;
+      wrap.append(label, input);
+      form.append(wrap);
+      textInputs[name] = input;
+    }
+
+    function addSignaturePad(key, labelText, hintText, isInitial) {
+      const wrap = document.createElement("div");
+      wrap.className = "field";
+      const head = document.createElement("div");
+      head.className = "pad-head";
+      const label = document.createElement("label");
+      label.textContent = labelText;
+      const clear = document.createElement("button");
+      clear.type = "button";
+      clear.className = "clear";
+      clear.textContent = "Clear";
+      head.append(label, clear);
+      const canvas = document.createElement("canvas");
+      if (isInitial) canvas.className = "initials";
+      wrap.append(head, canvas);
+      const hint = document.createElement("div");
+      hint.className = "hint";
+      hint.textContent = hintText;
+      wrap.append(hint);
+      form.append(wrap);
+
+      const pad = new SignaturePad(canvas);
+      clear.addEventListener("click", () => pad.clear());
+      pads[key] = pad;
+    }
+
+    async function build() {
+      const res = await fetch("/fields");
+      const fields = await res.json();
+      for (const [name, spec] of Object.entries(fields)) {
+        if (spec.type === "text") {
+          addTextField(name, spec);
+        } else if (spec.type === "signature" && name.startsWith("Initial")) {
+          // All initial placeholders share one capture — initials are identical.
+          initialNames.push(name);
+          if (initialNames.length === 1) {
+            addSignaturePad(INITIALS_KEY, "Initials", "Draw your initials once — applied everywhere initials are required", true);
+          }
+        } else if (spec.type === "signature") {
+          addSignaturePad(name, "Client signature", "Draw your signature", false);
+        }
+      }
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Generate signed PDF";
+    }
+
+    async function submit() {
+      // Client-side completeness: empty pads produce a valid-but-blank PNG the
+      // server can't distinguish, so enforce actual strokes here.
+      let firstBad = null;
+      for (const [name, pad] of Object.entries(pads)) {
+        if (!pad.drawn) {
+          pad.canvas.classList.add("invalid");
+          firstBad = firstBad || pad.canvas;
+        }
+      }
+      for (const input of Object.values(textInputs)) {
+        if (!input.value.trim()) { firstBad = firstBad || input; input.focus(); }
+      }
+      if (firstBad) {
+        firstBad.scrollIntoView({ behavior: "smooth", block: "center" });
+        return setStatus("Please complete every field and signature.", "error");
+      }
+
+      const payload = {};
+      for (const [name, input] of Object.entries(textInputs)) payload[name] = input.value.trim();
+      for (const [key, pad] of Object.entries(pads)) {
+        if (key === INITIALS_KEY) {
+          const url = pad.dataURL();
+          for (const name of initialNames) payload[name] = url;  // same initials everywhere
+        } else {
+          payload[key] = pad.dataURL();
+        }
+      }
+
+      submitBtn.disabled = true;
+      setStatus("Generating…");
+      try {
+        const res = await fetch("/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          const d = err.detail || {};
+          const msg = d.missing ? "Missing: " + d.missing.join(", ") : (d.message || "Could not generate the contract.");
+          return setStatus(msg, "error");
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "contract.pdf";
+        a.click();
+        URL.revokeObjectURL(url);
+        setStatus("Signed contract downloaded.", "ok");
+      } catch (e) {
+        setStatus("Network error: " + e.message, "error");
+      } finally {
+        submitBtn.disabled = false;
+      }
+    }
+
+    submitBtn.addEventListener("click", submit);
+    build().catch((e) => setStatus("Failed to load form: " + e.message, "error"));
+  </script>
+</body>
+
+</html>
