@@ -1,0 +1,58 @@
+{
+  "Nth": {
+    "type": "date",
+    "auto": true,
+    "format": "ordinal_day"
+  },
+  "MM, YYYY": {
+    "type": "date",
+    "auto": true,
+    "format": "month_year"
+  },
+  "ClientName": {
+    "type": "text",
+    "required": true,
+    "max_length": 120
+  },
+  "Contractor": {
+    "type": "text",
+    "auto": true,
+    "value": "JRBL LLC"
+  },
+  "Initial_1": {
+    "type": "signature",
+    "required": true,
+    "width": 60,
+    "height": 32
+  },
+  "Initial_2": {
+    "type": "signature",
+    "required": true,
+    "width": 60,
+    "height": 32
+  },
+  "Initial_3": {
+    "type": "signature",
+    "required": true,
+    "width": 60,
+    "height": 32
+  },
+  "ClientSignature": {
+    "type": "signature",
+    "required": true,
+    "width": 200,
+    "height": 60
+  },
+  "ContractorSignature": {
+    "type": "signature",
+    "auto": true,
+    "width": 200,
+    "height": 60,
+    "source": "contract/assets/contractor_signature.png"
+  },
+  "TodaysDate": {
+    "type": "date",
+    "auto": true,
+    "format": "long"
+  }
+}
