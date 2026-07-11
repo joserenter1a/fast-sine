@@ -36,9 +36,11 @@ def build_styles() -> dict[str, ParagraphStyle]:
             parent=base,
             fontName=BODY_FONT,
             fontSize=10.5,
-            leading=48,
+            # Inline sig images (60pt tall) rise above their line box; leading
+            # + spaceBefore must clear them or they overlap the paragraph above.
+            leading=64,
             alignment=TA_LEFT,
-            spaceBefore=10,
+            spaceBefore=18,
             spaceAfter=6,
         ),
     }

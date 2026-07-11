@@ -32,12 +32,13 @@ def health() -> dict:
 @app.get("/fields")
 def fields() -> dict:
     """The fields the client UI must collect, straight from the registry so the
-    front end never hardcodes the token list."""
+    front end never hardcodes the token list. Includes optional fields (e.g. a
+    conditional initial) flagged by "required"."""
     _, spec = tmpl.parse()
-    keep = ("type", "width", "height", "max_length")
+    keep = ("type", "width", "height", "max_length", "label", "hint", "multiline", "required")
     return {
         name: {k: f[k] for k in keep if k in f}
-        for name, f in tmpl.client_fields(spec).items()
+        for name, f in tmpl.ui_fields(spec).items()
     }
 
 

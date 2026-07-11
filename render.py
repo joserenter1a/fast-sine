@@ -92,8 +92,11 @@ def _render_token(name, spec, submission, today, sigdir, base_dir, preview):
         # Blank template: every field renders as a placeholder. The contractor
         # signature asset is deliberately never injected here (see invariant).
         return _blank_rule(spec)
+    # An alias field repeats another field's submitted value (tokens must be
+    # unique in the template, but e.g. the client's name appears three times).
+    source = spec.get("alias", name)
     if ftype == "text":
-        val = (spec.get("value") if spec.get("auto") else submission.get(name)) or ""
+        val = (spec.get("value") if spec.get("auto") else submission.get(source)) or ""
         val = val.strip()
         return escape(val) if val else EMPTY_TEXT_RULE
     if ftype == "date":
@@ -102,8 +105,13 @@ def _render_token(name, spec, submission, today, sigdir, base_dir, preview):
         if spec.get("auto"):
             path = (base_dir / spec["source"]).resolve()
         else:
+            data = submission.get(source)
+            if not data:
+                # Optional signature (e.g. a conditional initial) left blank.
+                # Required ones can't reach here — validated before rendering.
+                return _blank_rule(spec)
             path = sigdir / f"{name}.png"
-            path.write_bytes(_decode_signature(submission[name]))
+            path.write_bytes(_decode_signature(data))
         return _img_tag(path, spec)
     raise tmpl.TemplateError(f"{name!r}: unknown field type {ftype!r}")
 
@@ -199,15 +207,26 @@ if __name__ == "__main__":
         img.save(b, format="PNG")
         return b.getvalue()
 
+    initials = _placeholder("JQP", (140, 90))
     sample = {
         "ClientName": "Jane Q. Public",
-        "Initial_1": _placeholder("JQP", (140, 90)),
-        "Initial_2": _placeholder("JQP", (140, 90)),
-        "Initial_3": _placeholder("JQP", (140, 90)),
+        "DepositDate": "July 1, 2026",
+        "EventName": "Quinceanera",
+        "EventDate": "August 22, 2026",
+        "RoomDetails": "Chandelier Room / 150 people / 15 tables",
+        "PhoneNumber": "(503) 555-0184",
+        "Email": "jane@example.com",
+        "ClientAddress": "1234 SE Example St, Portland OR 97214",
+        "DepositAmount": "500",
+        "PackageDetails": "Full package: tables, chairs, linens, setup and teardown.",
+        "EventEndTime": "11:00 PM",
         "ClientSignature": _placeholder("Jane Q. Public"),
+        "Initial_Capacity": initials,
+        "Initial_Damages": initials,
+        "Initial_Sound": initials,
+        "Initial_Cleaning": initials,
+        "Initial_EndTime": initials,
     }
-    out = Path(
-        "/private/tmp/claude-502/-Users-joser-fast-sine/13012686-c61e-4332-8ec8-12b49ba1729c/scratchpad/sample_output.pdf"
-    )
+    out = Path(tempfile.gettempdir()) / "fast_sine_sample.pdf"
     out.write_bytes(render_pdf(sample))
     print(f"wrote {out} ({out.stat().st_size} bytes)")

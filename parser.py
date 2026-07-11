@@ -12,7 +12,9 @@ import re
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
-TEMPLATE_PATH = BASE_DIR / "contract" / "template" / "sample_contract.txt"
+TEMPLATE_PATH = (
+    BASE_DIR / "contract" / "template" / "mayas_event_center" / "mayas_contract.txt"
+)
 FIELDS_PATH = BASE_DIR / "contract" / "fields.json"
 
 TOKEN_RE = re.compile(r"___\(([^)]+)\)___")
@@ -85,6 +87,24 @@ def validate(text: str, fields: dict[str, dict]) -> None:
             )
         if ftype == "signature" and auto and not spec.get("source"):
             raise TemplateError(f"{name!r}: auto signature needs a 'source' asset path")
+        alias = spec.get("alias")
+        if alias:
+            if auto or spec.get("required"):
+                raise TemplateError(
+                    f"{name!r}: an alias field cannot be 'auto' or 'required'"
+                )
+            target = fields.get(alias)
+            if target is None:
+                raise TemplateError(f"{name!r}: alias target {alias!r} is not defined")
+            if target.get("type") != ftype:
+                raise TemplateError(
+                    f"{name!r}: alias target {alias!r} has type "
+                    f"{target.get('type')!r}, expected {ftype!r}"
+                )
+            if target.get("alias"):
+                raise TemplateError(
+                    f"{name!r}: alias target {alias!r} is itself an alias"
+                )
 
 
 def client_fields(fields: dict[str, dict]) -> dict[str, dict]:
@@ -95,6 +115,14 @@ def client_fields(fields: dict[str, dict]) -> dict[str, dict]:
 def auto_fields(fields: dict[str, dict]) -> dict[str, dict]:
     """Fields filled server-side (constants + derived dates)."""
     return {n: s for n, s in fields.items() if s.get("auto")}
+
+
+def ui_fields(fields: dict[str, dict]) -> dict[str, dict]:
+    """Fields the client UI collects: everything client-enterable, required or
+    optional. Auto constants and aliases (repeats of another field) stay out."""
+    return {
+        n: s for n, s in fields.items() if not s.get("auto") and not s.get("alias")
+    }
 
 
 def parse() -> tuple[str, dict[str, dict]]:
@@ -110,11 +138,12 @@ if __name__ == "__main__":
     tokens = find_tokens(text)
     print(f"OK: template and fields.json agree on {len(tokens)} unique tokens.\n")
     for name, spec in fields.items():
-        role = (
-            "auto"
-            if spec.get("auto")
-            else ("client*" if spec.get("required") else "optional")
-        )
+        if spec.get("auto"):
+            role = "auto"
+        elif spec.get("alias"):
+            role = f"alias -> {spec['alias']}"
+        else:
+            role = "client*" if spec.get("required") else "optional"
         print(f"  {name:<20} {spec['type']:<10} [{role}]")
     print(f"\n  client-required: {list(client_fields(fields))}")
     print(f"  auto           : {list(auto_fields(fields))}")

@@ -6,11 +6,15 @@ and downloads a finished contract — the contractor's name and signature are
 injected server-side as constants. Fully stateless: no database, no accounts,
 no stored documents.
 
+The contract currently served is Maya's Event Center's venue rental agreement
+(`contract/template/mayas_event_center/mayas_contract.txt`), transcribed and
+tokenized from the scanned originals in the same directory. The MEC
+representative is the "contractor" whose signature is auto-applied.
+
 ## How it works
 
-The template (`contract/template/sample_contract.txt`) is marked up with unique
-tokens of the form `___(Name)___`. `contract/fields.json` says how each token is
-filled. On `POST /generate`, the server validates that every required client
+The template is marked up with unique tokens of the form `___(Name)___`.
+`contract/fields.json` says how each token is filled. On `POST /generate`, the server validates that every required client
 field is present, injects the contractor + date constants, and renders the whole
 document in a single ReportLab pass.
 
@@ -33,13 +37,25 @@ hasn't completed.
 
 ## Fields
 
-Client-entered (required): `ClientName`, `Initial_1/2/3`, `ClientSignature`.
-Auto (server constants): `Contractor` name, `ContractorSignature` PNG, and the
-dates `Nth` / `MM, YYYY` / `TodaysDate` derived from today.
+Client-entered (required): booking/contact details (`ClientName`, `DepositDate`,
+`EventName`, `EventDate`, `RoomDetails`, `PhoneNumber`, `Email`,
+`ClientAddress`, `DepositAmount`, `PackageDetails`, `EventEndTime`),
+`ClientSignature`, and five rules-acknowledgment initials
+(`Initial_Capacity/Damages/Sound/Cleaning/EndTime`) drawn once and applied
+everywhere. `Initial_NoAlcohol` is *optional* — the client initials it only if
+their event will not serve alcohol; left blank it renders as an underline.
 
-The contractor identity lives in two places, both configured in `fields.json`:
-the `Contractor` field's `value` (legal name) and the `ContractorSignature`
-field's `source` (path to the PNG under `contract/assets/`).
+Auto (server constants): `MECSignature_Front/Final` (the representative's PNG,
+`source` under `contract/assets/`) and the signing dates derived from today.
+
+Two extra field kinds beyond the sample contract:
+
+- **alias** — the template forbids duplicate tokens, but some values repeat
+  (client name appears three times, the deposit amount twice). A field with
+  `"alias": "ClientName"` renders that submitted value again without the client
+  entering it twice.
+- **multiline** — `PackageDetails` sets `"multiline": true`, which the UI
+  renders as a textarea.
 
 ## Run locally
 

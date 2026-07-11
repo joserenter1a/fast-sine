@@ -72,7 +72,8 @@
       font-size: 15px;
     }
 
-    input[type=text] {
+    input[type=text],
+    textarea {
       width: 100%;
       padding: 11px 12px;
       font: inherit;
@@ -80,6 +81,10 @@
       border: 1px solid var(--line);
       border-radius: 6px;
       background: #fff;
+    }
+
+    textarea {
+      resize: vertical;
     }
 
     .pad-head {
@@ -177,9 +182,9 @@
     const form = document.getElementById("form");
     const submitBtn = document.getElementById("submit");
     const statusEl = document.getElementById("status");
-    const pads = {};          // name -> SignaturePad (ClientSignature + the shared initials pad)
-    const textInputs = {};    // name -> <input>
-    const initialNames = [];  // Initial_1/2/3 — all filled from one shared pad
+    const pads = {};          // key -> { pad, required } (signatures + the shared initials pad)
+    const textInputs = {};    // name -> { input, required }
+    const initialNames = [];  // required Initial_* tokens — all filled from one shared pad
     const INITIALS_KEY = "__initials__";
 
     function setStatus(msg, kind) {
@@ -249,17 +254,28 @@
       const wrap = document.createElement("div");
       wrap.className = "field";
       const label = document.createElement("label");
-      label.textContent = name === "ClientName" ? "Full legal name" : name;
-      const input = document.createElement("input");
-      input.type = "text";
-      input.autocomplete = "name";
+      label.textContent = spec.label || name;
+      let input;
+      if (spec.multiline) {
+        input = document.createElement("textarea");
+        input.rows = 6;
+      } else {
+        input = document.createElement("input");
+        input.type = "text";
+      }
       if (spec.max_length) input.maxLength = spec.max_length;
       wrap.append(label, input);
+      if (spec.hint) {
+        const hint = document.createElement("div");
+        hint.className = "hint";
+        hint.textContent = spec.hint;
+        wrap.append(hint);
+      }
       form.append(wrap);
-      textInputs[name] = input;
+      textInputs[name] = { input, required: !!spec.required };
     }
 
-    function addSignaturePad(key, labelText, hintText, isInitial) {
+    function addSignaturePad(key, labelText, hintText, isInitial, required) {
       const wrap = document.createElement("div");
       wrap.className = "field";
       const head = document.createElement("div");
@@ -282,7 +298,7 @@
 
       const pad = new SignaturePad(canvas);
       clear.addEventListener("click", () => pad.clear());
-      pads[key] = pad;
+      pads[key] = { pad, required };
     }
 
     async function build() {
@@ -291,14 +307,18 @@
       for (const [name, spec] of Object.entries(fields)) {
         if (spec.type === "text") {
           addTextField(name, spec);
-        } else if (spec.type === "signature" && name.startsWith("Initial")) {
-          // All initial placeholders share one capture — initials are identical.
+        } else if (spec.type === "signature" && spec.required && name.startsWith("Initial")) {
+          // All required initial placeholders share one capture — initials are identical.
           initialNames.push(name);
           if (initialNames.length === 1) {
-            addSignaturePad(INITIALS_KEY, "Initials", "Draw your initials once — applied everywhere initials are required", true);
+            addSignaturePad(INITIALS_KEY, "Initials", "Draw your initials once — applied everywhere the rules require an initial", true, true);
           }
+        } else if (spec.type === "signature" && !spec.required) {
+          // Optional, semantically distinct initial (e.g. the no-alcohol
+          // certification) — its own pad, never auto-filled from the shared one.
+          addSignaturePad(name, spec.label || name, spec.hint || "Optional — leave blank if it does not apply", true, false);
         } else if (spec.type === "signature") {
-          addSignaturePad(name, "Client signature", "Draw your signature", false);
+          addSignaturePad(name, spec.label || "Client signature", "Draw your signature", false, true);
         }
       }
       submitBtn.disabled = false;
@@ -309,23 +329,27 @@
       // Client-side completeness: empty pads produce a valid-but-blank PNG the
       // server can't distinguish, so enforce actual strokes here.
       let firstBad = null;
-      for (const [name, pad] of Object.entries(pads)) {
-        if (!pad.drawn) {
+      for (const { pad, required } of Object.values(pads)) {
+        if (required && !pad.drawn) {
           pad.canvas.classList.add("invalid");
           firstBad = firstBad || pad.canvas;
         }
       }
-      for (const input of Object.values(textInputs)) {
-        if (!input.value.trim()) { firstBad = firstBad || input; input.focus(); }
+      for (const { input, required } of Object.values(textInputs)) {
+        if (required && !input.value.trim()) { firstBad = firstBad || input; input.focus(); }
       }
       if (firstBad) {
         firstBad.scrollIntoView({ behavior: "smooth", block: "center" });
-        return setStatus("Please complete every field and signature.", "error");
+        return setStatus("Please complete every required field and signature.", "error");
       }
 
       const payload = {};
-      for (const [name, input] of Object.entries(textInputs)) payload[name] = input.value.trim();
-      for (const [key, pad] of Object.entries(pads)) {
+      for (const [name, { input }] of Object.entries(textInputs)) {
+        const val = input.value.trim();
+        if (val) payload[name] = val;
+      }
+      for (const [key, { pad }] of Object.entries(pads)) {
+        if (!pad.drawn) continue;  // optional pad left blank stays out of the payload
         if (key === INITIALS_KEY) {
           const url = pad.dataURL();
           for (const name of initialNames) payload[name] = url;  // same initials everywhere

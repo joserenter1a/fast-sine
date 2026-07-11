@@ -1,58 +1,165 @@
 {
-  "Nth": {
-    "type": "date",
-    "auto": true,
-    "format": "ordinal_day"
-  },
-  "MM, YYYY": {
-    "type": "date",
-    "auto": true,
-    "format": "month_year"
-  },
   "ClientName": {
     "type": "text",
     "required": true,
-    "max_length": 120
+    "max_length": 120,
+    "label": "Name of client"
   },
-  "Contractor": {
+  "DepositDate": {
     "type": "text",
-    "auto": true,
-    "value": "JRBL LLC"
-  },
-  "Initial_1": {
-    "type": "signature",
     "required": true,
-    "width": 60,
-    "height": 32
+    "max_length": 40,
+    "label": "Day of deposit"
   },
-  "Initial_2": {
-    "type": "signature",
+  "EventName": {
+    "type": "text",
     "required": true,
-    "width": 60,
-    "height": 32
+    "max_length": 120,
+    "label": "Name of event"
   },
-  "Initial_3": {
-    "type": "signature",
+  "EventDate": {
+    "type": "text",
     "required": true,
-    "width": 60,
-    "height": 32
+    "max_length": 40,
+    "label": "Day of event"
+  },
+  "RoomDetails": {
+    "type": "text",
+    "required": true,
+    "max_length": 160,
+    "label": "Room type / number of people / number of tables"
+  },
+  "PhoneNumber": {
+    "type": "text",
+    "required": true,
+    "max_length": 30,
+    "label": "Phone number"
+  },
+  "Email": {
+    "type": "text",
+    "required": true,
+    "max_length": 120,
+    "label": "Email"
+  },
+  "ClientAddress": {
+    "type": "text",
+    "required": true,
+    "max_length": 200,
+    "label": "Address of client"
+  },
+  "DepositAmount": {
+    "type": "text",
+    "required": true,
+    "max_length": 20,
+    "label": "Deposit amount (USD)"
+  },
+  "PackageDetails": {
+    "type": "text",
+    "required": true,
+    "multiline": true,
+    "max_length": 2000,
+    "label": "Package details"
+  },
+  "EventEndTime": {
+    "type": "text",
+    "required": true,
+    "max_length": 20,
+    "label": "Event end time",
+    "hint": "The time your event strictly ends (rule 11), e.g. 11:00 PM"
   },
   "ClientSignature": {
     "type": "signature",
     "required": true,
     "width": 200,
-    "height": 60
+    "height": 60,
+    "label": "Client signature"
   },
-  "ContractorSignature": {
+  "Initial_Capacity": {
+    "type": "signature",
+    "required": true,
+    "width": 60,
+    "height": 32
+  },
+  "Initial_Damages": {
+    "type": "signature",
+    "required": true,
+    "width": 60,
+    "height": 32
+  },
+  "Initial_Sound": {
+    "type": "signature",
+    "required": true,
+    "width": 60,
+    "height": 32
+  },
+  "Initial_Cleaning": {
+    "type": "signature",
+    "required": true,
+    "width": 60,
+    "height": 32
+  },
+  "Initial_EndTime": {
+    "type": "signature",
+    "required": true,
+    "width": 60,
+    "height": 32
+  },
+  "Initial_NoAlcohol": {
+    "type": "signature",
+    "width": 60,
+    "height": 32,
+    "label": "No-alcohol certification (optional)",
+    "hint": "Initial ONLY if your event will not host or serve alcohol (rule 9B). Leave blank if alcohol will be served."
+  },
+  "ClientName_Rules": {
+    "type": "text",
+    "alias": "ClientName"
+  },
+  "ClientName_Printed": {
+    "type": "text",
+    "alias": "ClientName"
+  },
+  "DepositAmount_Policy": {
+    "type": "text",
+    "alias": "DepositAmount"
+  },
+  "FormalizedDate": {
+    "type": "date",
+    "auto": true,
+    "format": "long"
+  },
+  "SignDate_Client": {
+    "type": "date",
+    "auto": true,
+    "format": "long"
+  },
+  "SignDate_MEC_Front": {
+    "type": "date",
+    "auto": true,
+    "format": "long"
+  },
+  "SignDate_Customer": {
+    "type": "date",
+    "auto": true,
+    "format": "long"
+  },
+  "SignDate_MEC_Final": {
+    "type": "date",
+    "auto": true,
+    "format": "long"
+  },
+  "MECSignature_Front": {
     "type": "signature",
     "auto": true,
     "width": 200,
     "height": 60,
     "source": "contract/assets/contractor_signature.png"
   },
-  "TodaysDate": {
-    "type": "date",
+  "MECSignature_Final": {
+    "type": "signature",
     "auto": true,
-    "format": "long"
+    "width": 200,
+    "height": 60,
+    "source": "contract/assets/contractor_signature.png"
   }
 }
